@@ -12,28 +12,66 @@ function isSingleFile(
   return typeof file === "object" && (file as UploadedFile).name !== undefined;
 }
 
+// Insert a single image in the bucket
+// Handles response return as well
+function InsertImageInBucket(file: UploadedFile, res: Response) {
+  minioClient.putObject(
+    process.env.MINIO_BUCKET_NAME as string,
+    file.name,
+    file.data,
+    async function (err, etag) {
+      if (err)
+        return res.status(500).json({
+          success: false,
+          message: "Error while inserting image.",
+        });
+
+      const resultImage = await minioClient.presignedGetObject(
+        process.env.MINIO_BUCKET_NAME as string,
+        file.name
+      );
+
+      return res.json({
+        success: true,
+        data: resultImage,
+      });
+    }
+  );
+}
+
 app.post("/api/insertImage", fileUpload(), async (req, res) => {
   try {
     if (req.files && req.files.file && isSingleFile(req.files.file)) {
       const file: UploadedFile = req.files.file;
-      minioClient.putObject(
-        process.env.MINIO_BUCKET_NAME as string,
-        file.name,
-        file.data,
-        async function (err, etag) {
-          if (err) return console.log(etag);
-          console.log("File uploaded successfully.");
-          const resultImage = await minioClient.presignedGetObject(
-            process.env.MINIO_BUCKET_NAME as string,
-            file.name
-          );
 
-          return res.json({
-            success: true,
-            data: "resultImage",
+      // Extract image bucket name
+      const bucket_name = process.env.MINIO_BUCKET_NAME as string;
+      // Check if bucket exists and create it if not
+      minioClient.bucketExists(bucket_name, (err, exists) => {
+        if (err) {
+          return res.status(500).json({
+            success: false,
+            message: "Error while inserting image.",
           });
         }
-      );
+        if (!exists) {
+          minioClient.makeBucket(bucket_name, "", function (err) {
+            if (err)
+              return res.status(500).json({
+                success: false,
+                message: "Error while inserting image.",
+              });
+            else return InsertImageInBucket(file, res);
+          });
+        } else {
+          return InsertImageInBucket(file, res);
+        }
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid request",
+      });
     }
   } catch (error) {
     console.error("Error while inserting image:", error);
