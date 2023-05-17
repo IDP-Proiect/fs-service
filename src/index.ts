@@ -4,7 +4,7 @@ import { minioClient } from "./utils";
 import { config } from "./startup";
 
 const app: Express = express();
-const port = config.PORT;
+const port = 80;
 
 function isSingleFile(
   file: UploadedFile | UploadedFile[]
@@ -51,7 +51,7 @@ app.post("/api/insertImage", fileUpload(), async (req, res) => {
         if (err) {
           return res.status(500).json({
             success: false,
-            message: "Error while inserting image.",
+            message: "Error while checking for bucket.",
           });
         }
         if (!exists) {
@@ -59,7 +59,7 @@ app.post("/api/insertImage", fileUpload(), async (req, res) => {
             if (err)
               return res.status(500).json({
                 success: false,
-                message: "Error while inserting image.",
+                message: "Error while creating bucket.",
               });
             else return InsertImageInBucket(file, res);
           });
@@ -74,10 +74,10 @@ app.post("/api/insertImage", fileUpload(), async (req, res) => {
       });
     }
   } catch (error) {
-    console.error("Error while inserting image:", error);
+    console.error("Error before attempting to insert image:", error);
     return res.json({
       success: false,
-      message: "Error while inserting image.",
+      message: "Error before attempting to insert image",
     });
   }
 });
